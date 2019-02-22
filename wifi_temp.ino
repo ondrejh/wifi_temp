@@ -33,6 +33,11 @@
 #include <DHT.h>
 
 #include <ESP8266WiFi.h>
+
+#define TEMP_DISP_TIME 5000
+#define WIFI_DISP_TIME 2000
+#define TEMP_REFRESH_TIME 30000
+
 const char WiFiAPPSK[] = "sparkfun";
 WiFiServer server(80);
 
@@ -118,14 +123,14 @@ void displayWifi() {
 void loop() {
   uint32_t now = millis();
 
-  static uint32_t disp_t=now, read_t=now-30000;
+  static uint32_t disp_t=now, read_t=now-TEMP_REFRESH_TIME;
   static float t;
   static float h;
   static int show = 0;
   static int timeout = 0;
   
-  if ((now - read_t) >= 30000) {
-    read_t += 30000;
+  if ((now - read_t) >= TEMP_REFRESH_TIME) {
+    read_t += TEMP_REFRESH_TIME;
     t = dht.readTemperature();
     h = dht.readHumidity();
   }
@@ -136,11 +141,11 @@ void loop() {
     switch (show) {
     case 0:
       displayTemp(t, h);
-      timeout = 5000;
+      timeout = TEMP_DISP_TIME;
       break;
     case 1:
       displayWifi();
-      timeout = 2000;
+      timeout = WIFI_DISP_TIME;
       break;
     }
     
