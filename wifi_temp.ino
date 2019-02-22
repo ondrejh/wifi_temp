@@ -118,19 +118,23 @@ void displayWifi() {
 void loop() {
   uint32_t now = millis();
 
-  static uint32_t read_t = -5000;
-  static float t, h;
+  static uint32_t disp_t=now, read_t=now-30000;
+  static float t;
+  static float h;
   static int show = 0;
   static int timeout = 0;
   
-  if ((now - read_t) >= timeout) {
-    read_t += timeout;
+  if ((now - read_t) >= 30000) {
+    read_t += 30000;
+    t = dht.readTemperature();
+    h = dht.readHumidity();
+  }
+
+  if ((now - disp_t) >= timeout) {
+    disp_t += timeout;
     
     switch (show) {
     case 0:
-      t = dht.readTemperature();
-      h = dht.readHumidity();
-  
       displayTemp(t, h);
       timeout = 5000;
       break;
