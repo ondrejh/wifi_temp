@@ -13,6 +13,9 @@
  * 3V3             5 Vcc         3.3V from ESP to display
  * D0 (GPIO16)     6 BL          3.3V to turn backlight on, or PWM
  * G               7 Gnd         Ground
+ * 
+ * D4 DHT22 sensor
+ * D3 sensor pullup
  *
  * Dependencies:
  * https://github.com/adafruit/Adafruit-GFX-Library
@@ -29,11 +32,9 @@
 
 #include <DHT.h>
 
-// Bitmaps
-#include "wemos-logo-84x48.h"
-#include "wemos-logo-84x28.h"
-#include "wemos-w-53x48.h"
-#include "wemos-w-84x48.h"
+#include <ESP8266WiFi.h>
+const char WiFiAPPSK[] = "sparkfun";
+WiFiServer server(80);
 
 // Pins
 const int8_t RST_PIN = D2;
@@ -43,15 +44,6 @@ const int8_t DC_PIN = D6;
 //const int8_t CLK_PIN = D5;  // Uncomment for Software SPI
 const int8_t BL_PIN = D0;
 
-
-// Software SPI with explicit CE pin.
-// Adafruit_PCD8544 display = Adafruit_PCD8544(CLK_PIN, DIN_PIN, DC_PIN, CE_PIN, RST_PIN);
-
-// Software SPI with CE tied to ground. Saves a pin but other pins can't be shared with other hardware.
-// Adafruit_PCD8544(int8_t CLK_PIN, int8_t DIN_PIN, int8_t DC_PIN, int8_t RST_PIN);
-
-// Hardware SPI based on hardware controlled SCK (SCLK) and MOSI (DIN) pins. CE is still controlled by any IO pin.
-// NOTE: MISO and SS will be set as an input and output respectively, so be careful sharing those pins!
 Adafruit_PCD8544 display = Adafruit_PCD8544(DC_PIN, CE_PIN, RST_PIN);
 
 DHT dht(D4, DHT21);
@@ -75,6 +67,9 @@ void setup() {
   // clear display to hide Adafruit logo preloaded by library
   display.clearDisplay();
   display.display();
+
+  setupWiFi();
+  server.begin();
 }
 
 void displayTemp(float t, float h) {
@@ -91,7 +86,6 @@ void displayTemp(float t, float h) {
   int hpady = 48 - (8*2 + tpady);
   
   display.clearDisplay();
-  display.setTextSize(1);
   display.setTextColor(BLACK);
   display.setTextSize(2);
   display.setCursor(tpadx,tpady);
@@ -101,10 +95,154 @@ void displayTemp(float t, float h) {
   display.display();
 }
 
-void loop() {
-  float t = dht.readTemperature();
-  float h = dht.readHumidity();
+void displayWifi() {
+  char str[16];
+  if (WiFi.status() == WL_CONNECTED)
+    sprintf(str, "Connected");
+  else
+    sprintf(str, "Not Connected");
+  int padx = (84 - strlen(str)*6) / 2;
+  int pady = (48 - 3*8) / 2;
 
-  displayTemp(t, h);
-  delay(5000);
+  display.clearDisplay();
+  display.setTextColor(BLACK);
+  display.setTextSize(1);
+  display.setCursor(padx,pady);
+  display.print(str);
+
+  pady += (2*8);
+  displayShrinkIP(pady);
+  display.display();
+}
+
+void loop() {
+  uint32_t now = millis();
+
+  static uint32_t read_t = -5000;
+  static float t, h;
+  static int show = 0;
+  static int timeout = 0;
+  
+  if ((now - read_t) >= timeout) {
+    read_t += timeout;
+    
+    switch (show) {
+    case 0:
+      t = dht.readTemperature();
+      h = dht.readHumidity();
+  
+      displayTemp(t, h);
+      timeout = 5000;
+      break;
+    case 1:
+      displayWifi();
+      timeout = 2000;
+      break;
+    }
+    
+    show ++;
+    show %= 2;
+  }
+
+  // Check if a client has connected
+  WiFiClient client = server.available();
+  if (client) {
+    // Read the first line of the request
+    String req = client.readStringUntil('\r');
+    client.flush();
+  
+    // Prepare the response. Start with the common header:
+    String s = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\n";
+    s += "Temperature = " + String(t, 1) + "&degC<br>\r\n";
+    s += "Humidity = " + String(h, 0) + "%<br>\r\n";
+    s += "</html>\r\n";
+  
+    // Send the response to the client
+    client.print(s);
+  }
+  
+  delay(1);
+}
+
+void displayShrinkIP(int pady) {
+  char str[16];
+  display.setTextSize(1);
+  display.setTextColor(BLACK);
+  sprintf(str, "%d.%d.%d.%d", WiFi.localIP()[0], WiFi.localIP()[1], WiFi.localIP()[2], WiFi.localIP()[3]);
+  int padx = (84 - (strlen(str)*6 - 9)) / 2;
+  for (int i=0; i<strlen(str); i++) {
+    display.setCursor(padx, pady);
+    if (str[i]=='.')
+      padx += 5;
+    else if (str[i+1]=='.')
+      padx += 4;
+    else
+      padx += 6;
+    display.print(str[i]);
+  }  
+}
+
+void setupWiFi()
+{
+  WiFi.begin("rejnok", "r3jn0Knet");
+
+  /*
+  // INTERACTIVE CONNECTION DIALOG
+  char str[16] = "Connecting";
+  int padx = (84 - strlen(str)*6) / 2;
+  int pady = (48 - 3*8) / 2;
+
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setTextColor(BLACK);
+  display.setCursor(padx, pady);
+  display.print(str);
+  display.display();
+
+  sprintf(str, ".....");
+  padx = (84 - strlen(str)*6) / 2;
+  pady += (8*2);
+
+  int cnt = 0;
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    for (int i = 0; i < 5; i++)
+      str[i] = (i==cnt) ? '.' : ' ';
+    cnt ++;
+    cnt %= 5;
+    display.setTextColor(BLACK);
+    display.setCursor(padx, pady);
+    display.print(str);
+    display.display();
+    delay(200);
+    display.setCursor(padx, pady);
+    display.setTextColor(WHITE);
+    display.print(".....");
+  }
+
+  displayShrinkIP(pady);
+  display.display();
+  delay(5000); */
+
+
+  /*
+  // AP MODE SECTION
+  WiFi.mode(WIFI_AP);
+
+  // Do a little work to get a unique-ish name. Append the
+  // last two bytes of the MAC (HEX'd) to "Thing-":
+  uint8_t mac[WL_MAC_ADDR_LENGTH];
+  WiFi.softAPmacAddress(mac);
+  String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
+                 String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
+  macID.toUpperCase();
+  String AP_NameString = "ESP8266 Thing " + macID;
+
+  char AP_NameChar[AP_NameString.length() + 1];
+  memset(AP_NameChar, 0, AP_NameString.length() + 1);
+
+  for (int i=0; i<AP_NameString.length(); i++)
+    AP_NameChar[i] = AP_NameString.charAt(i);
+
+  WiFi.softAP(AP_NameChar, WiFiAPPSK);*/
 }
