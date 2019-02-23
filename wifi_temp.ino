@@ -24,6 +24,8 @@
  * - https://github.com/adafruit/Adafruit-PCD8544-Nokia-5110-LCD-library/pull/27
  */
 
+#include "config.h"
+
 #include <Arduino.h>
 
 #include <SPI.h>
@@ -38,7 +40,6 @@
 #define WIFI_DISP_TIME 2000
 #define TEMP_REFRESH_TIME 30000
 
-const char WiFiAPPSK[] = "sparkfun";
 WiFiServer server(80);
 
 // Pins
@@ -62,8 +63,7 @@ void setup() {
   digitalWrite(BL_PIN, HIGH);
 
   display.begin();
-  display.setContrast(60);  // Adjust for your display
-  Serial.println("Show Adafruit logo bitmap");
+  display.setContrast(DISP_CONTRAST);  // Adjust for your display
 
   pinMode(D3, OUTPUT);
   digitalWrite(D3, HIGH);
@@ -193,65 +193,6 @@ void displayShrinkIP(int pady) {
 
 void setupWiFi()
 {
-  WiFi.begin("rejnok", "r3jn0Knet");
-
-  /*
-  // INTERACTIVE CONNECTION DIALOG
-  char str[16] = "Connecting";
-  int padx = (84 - strlen(str)*6) / 2;
-  int pady = (48 - 3*8) / 2;
-
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(BLACK);
-  display.setCursor(padx, pady);
-  display.print(str);
-  display.display();
-
-  sprintf(str, ".....");
-  padx = (84 - strlen(str)*6) / 2;
-  pady += (8*2);
-
-  int cnt = 0;
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    for (int i = 0; i < 5; i++)
-      str[i] = (i==cnt) ? '.' : ' ';
-    cnt ++;
-    cnt %= 5;
-    display.setTextColor(BLACK);
-    display.setCursor(padx, pady);
-    display.print(str);
-    display.display();
-    delay(200);
-    display.setCursor(padx, pady);
-    display.setTextColor(WHITE);
-    display.print(".....");
-  }
-
-  displayShrinkIP(pady);
-  display.display();
-  delay(5000); */
-
-
-  /*
-  // AP MODE SECTION
-  WiFi.mode(WIFI_AP);
-
-  // Do a little work to get a unique-ish name. Append the
-  // last two bytes of the MAC (HEX'd) to "Thing-":
-  uint8_t mac[WL_MAC_ADDR_LENGTH];
-  WiFi.softAPmacAddress(mac);
-  String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
-                 String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
-  macID.toUpperCase();
-  String AP_NameString = "ESP8266 Thing " + macID;
-
-  char AP_NameChar[AP_NameString.length() + 1];
-  memset(AP_NameChar, 0, AP_NameString.length() + 1);
-
-  for (int i=0; i<AP_NameString.length(); i++)
-    AP_NameChar[i] = AP_NameString.charAt(i);
-
-  WiFi.softAP(AP_NameChar, WiFiAPPSK);*/
+  WiFi.softAPdisconnect(true);
+  WiFi.begin("home_wifi", "homewifi12345");
 }
