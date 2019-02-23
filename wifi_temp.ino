@@ -193,6 +193,5 @@ void displayShrinkIP(int pady) {
 
 void setupWiFi()
 {
-  WiFi.softAPdisconnect(true);
-  WiFi.begin("home_wifi", "homewifi12345");
+  WiFi.begin(WIFI_SSID, WIFI_PSWD);
 }
